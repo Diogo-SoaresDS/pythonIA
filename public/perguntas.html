@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Responder Perguntas de Python</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+            height: 100vh;
+            overflow-y: auto;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .question {
+            background-color: white;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 10px 0;
+            width: 100%;
+            max-width: 600px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        button {
+            margin-top: 10px;
+            background-color: blueviolet;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            width: 200px;
+            padding: 10px 20px;
+            font-size: 18px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        button:hover {
+            background-color: #892be2;
+        }
+
+        .options {
+            margin-top: 10px;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+
+        .feedback {
+            margin-top: 10px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            display: none; /* Inicialmente oculto */
+        }
+    </style>
+</head>
+<body>
+    <h1>Responder Perguntas de Python</h1>
+
+    <div id="questions-container"></div>
+    <div class="buttons">
+        <button onclick="window.history.back()">Voltar</button>
+        <button id="submit-button" onclick="submitAnswers()">Enviar Respostas</button>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            const perguntas = JSON.parse(params.get('perguntas'));
+            const container = document.getElementById('questions-container');
+
+            perguntas.forEach((item, index) => {
+                const questionDiv = document.createElement('div');
+                questionDiv.classList.add('question');
+
+                const perguntaElement = document.createElement('p');
+                perguntaElement.innerText = item.pergunta;
+                questionDiv.appendChild(perguntaElement);
+
+                const optionsContainer = document.createElement('div');
+                optionsContainer.classList.add('options');
+
+                item.opcoes.forEach((opcao) => {
+                    const optionLabel = document.createElement('label');
+                    const optionInput = document.createElement('input');
+
+                    optionInput.type = 'radio';
+                    optionInput.name = `question-${index}`; 
+                    optionInput.value = opcao;
+
+                    optionLabel.appendChild(optionInput);
+                    optionLabel.appendChild(document.createTextNode(opcao));
+                    optionsContainer.appendChild(optionLabel);
+                    optionsContainer.appendChild(document.createElement('br'));
+                });
+
+                questionDiv.appendChild(optionsContainer);
+
+                // Div para feedback
+                const feedbackDiv = document.createElement('div');
+                feedbackDiv.classList.add('feedback');
+                feedbackDiv.id = `feedback-${index}`;
+                questionDiv.appendChild(feedbackDiv);
+
+                container.appendChild(questionDiv);
+            });
+        });
+
+        function submitAnswers() {
+            const answers = {};
+            const correctAnswers = {};
+            let allAnswered = true;
+
+            const perguntas = JSON.parse(new URLSearchParams(window.location.search).get('perguntas'));
+            perguntas.forEach((item, index) => {
+                const selectedOption = document.querySelector(`input[name="question-${index}"]:checked`);
+                answers[`question-${index}`] = selectedOption ? selectedOption.value : null;
+                correctAnswers[`question-${index}`] = item.resposta; 
+
+                if (!selectedOption) {
+                    allAnswered = false;
+                }
+            });
+
+            if (!allAnswered) {
+                alert("Por favor, responda todas as perguntas.");
+                return;
+            }
+
+            const submitButton = document.getElementById('submit-button');
+            submitButton.disabled = true; 
+            submitButton.innerText = "Enviando..."; 
+
+            fetch('/enviar_respostas', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ answers, correctAnswers }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Exibir feedback para cada pergunta
+                perguntas.forEach((item, index) => {
+                    const feedbackDiv = document.getElementById(`feedback-${index}`);
+                    const respostaDada = answers[`question-${index}`];
+                    const respostaCorreta = correctAnswers[`question-${index}`];
+
+                    feedbackDiv.style.display = 'block'; // Mostrar feedback
+                    if (respostaDada === respostaCorreta) {
+                        feedbackDiv.innerHTML = '<p style="color: green;">Correto!</p>';
+                    } else {
+                        feedbackDiv.innerHTML = `<p style="color: red;">Incorreto! A resposta correta era: "${respostaCorreta}". Você respondeu: "${respostaDada}".</p>`;
+                    }
+                });
+
+                submitButton.innerText = "Enviar Respostas"; 
+                submitButton.disabled = false; 
+            })
+            .catch((error) => {
+                console.error('Erro:', error);
+                alert("Ocorreu um erro ao enviar suas respostas. Tente novamente.");
+                submitButton.innerText = "Enviar Respostas"; 
+                submitButton.disabled = false; 
+            });
+        }
+    </script>
+</body>
+</html>
